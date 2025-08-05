@@ -1,3 +1,5 @@
+# To implement HTTP 1.1, which adds 2 new headers, connection and user-agent.
+
 import socket
 import ssl
 
@@ -32,10 +34,17 @@ class URL:
         if self.scheme == "https":
             ctx = ssl.create_default_context()
             s = ctx.wrap_socket(s, server_hostname=self.host)
+        
+        headers = {
+            "Host": self.host,
+            "Connection": "close",
+            "User-Agent": "MyBrowser",
+        }
 
         # Sending the Request
-        request = "GET {} HTTP/1.0\r\n".format(self.path) # \r\n: \r means go to the start of current line, \n means go to the next line.
-        request += "Host: {}\r\n".format(self.host) 
+        request = "GET {} HTTP/1.1\r\n".format(self.path) # \r\n: \r means go to the start of current line, \n means go to the next line.
+        for header, value in headers.items():
+            request += f"{header}: {value}\r\n" 
         request += "\r\n" # add blank line at end of request, if not, the other computer keeps waiting.
         s.send(request.encode("utf8"))
 
@@ -116,4 +125,3 @@ def load(url):
 if __name__ == "__main__":
     import sys
     load(URL(sys.argv[1]))
-                    
