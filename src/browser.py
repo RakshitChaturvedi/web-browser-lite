@@ -1,44 +1,14 @@
 from src.url_loader import URL
 import tkinter
 import tkinter.font
-         
+from src.html_parser import Text, Element, HTMLParser      
+
 WIDTH, HEIGHT = 800, 600 # Width and height of the console
 HSTEP, VSTEP = 13, 18 # Width and Height of the characters
 SCROLL_STEP = 100 
 FONTS = {}
 
-class Text:
-    def __init__(self, text):
-        self.text = text
-
-class Tag:
-    def __init__(self, tag):
-        self.tag = tag
-
-def lex(body):
-    out = []
-    buffer = "" # stores either text or tag before they can be used 
-    in_tag = False
-    for c in body:
-        if c == "<":
-            in_tag = True
-            if buffer: out.append(Text(buffer))
-            buffer = ""
-        elif c == ">":
-            in_tag = False
-            out.append(Tag(buffer))
-            buffer=""
-        else:
-            buffer += c
-    if not in_tag and buffer:
-        out.append(Text(buffer))
-    return out
-
-    """
-    If the text is inside <> tags, ignore them, if not, add them to text and return them.
-    """
-
-# Caching fonts to avoid repeat creation
+# CACHING FONTS
 def get_font(size, weight, style):
     key = (size, weight, style) # unique identifier for a font style
 
@@ -52,41 +22,51 @@ def get_font(size, weight, style):
     return FONTS[key][0]
 
 class Layout:
-    def __init__(self, tokens):
+    def __init__(self, tree):
         self.display_list= []
+
         self.cursor_x = HSTEP
         self.cursor_y = VSTEP
         self.weight = "normal"
         self.style = "roman"
         self.size = 16
+
         self.line = []
-        for tok in tokens:
-            self.token(tok)
+        self.recurse(tree)
         self.flush()
 
-    def token(self, tok):
-        if isinstance(tok, Text):
-            for word in tok.text.split():
+    def recurse(self, tree):
+        if isinstance(tree, Text):
+            for word in tree.text.split():
                 self.word(word)
-        elif tok.tag == "i":
-            style = "italic"
-        elif tok.tag == "/i":
-            style = "roman"
-        elif tok.tag == "b":
-            weight = "bold"
-        elif tok.tag == "/b":
-            weight = "normal"
-        elif tok.tag == "small":
+        else:
+            self.open_tag(tree.tag)
+            for child in tree.children:
+                self.recurse(child)
+            self.close_tag(tree.tag)
+
+    def open_tag(self, tag):
+        if tag == "i":
+            self.style = "italic"
+        elif tag == "b":
+            self.weight = "bold"
+        elif tag == "small":
             self.size -= 2
-        elif tok.tag == "/small":
-            self.size += 2
-        elif tok.tag == "big":
+        elif tag == "big":
             self.size += 4
-        elif tok.tag == "/big":
-            self.size -= 4
-        elif tok.tag == "br":
+        elif tag == "br":
             self.flush()
-        elif tok.tag == "/p":
+
+    def close_tag(self, tag):
+        if tag == "i":
+            self.style = "roman"
+        elif tag == "b":
+            self.weight = "normal"
+        elif tag == "small":
+            self.size += 2
+        elif tag == "big":
+            self.size -= 4
+        elif tag == "p":
             self.flush()
             self.cursor_y += VSTEP
     
@@ -138,8 +118,8 @@ class Browser:
     
     def load(self, url):
         body = url.request()
-        tokens = lex(body)
-        self.display_list = Layout(tokens).display_list
+        self.nodes = HTMLParser(body).parse()
+        self.display_list = Layout(self.nodes).display_list
         self.draw()
 
     def draw(self):

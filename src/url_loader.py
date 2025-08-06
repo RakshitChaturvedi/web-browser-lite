@@ -19,6 +19,13 @@ class URL:
         if ":" in self.host:
             self.host, port = self.host.split(":", 1)
             self.port = int(port)
+        
+        """
+        website url: https://en.wikipedia.org/wiki/OpenAI
+        scheme = https
+        host = en.wikipedia.org/
+        path = /wiki/OpenAI
+        """
     
     # Creating a socket (Request and Response)
     def request(self):
