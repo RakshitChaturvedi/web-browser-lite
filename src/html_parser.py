@@ -36,29 +36,6 @@ class HTMLParser:
         self.body = body    # raw html as string
         self.unfinished = []    # stack of open (unfinished) elements
 
-    def get_attributes(self, text):
-        parts = text.split()
-        tag = parts[0].casefold()
-        attributes = {}
-
-        for attrpair in parts[1:]:
-            if "=" in attrpair:
-                key, value = attrpair.split("=", 1)
-                if len(value) > 2 and value[0] in ["'", "/"]:
-                    value = value[1:-1]
-                attributes[key.casefold()] = value
-            else: 
-                attributes[attrpair.casefold()] = ""
-        return tag, attributes
-    """
-    Example input: <a href="https://example.org" target="_blank">
-    tag = 'a'
-    attributes = {
-        'href': 'https://example.org',
-        'target': '_blank'
-    }
-    """
-
     def parse(self):
         text = ""
         in_tag = False
@@ -84,20 +61,28 @@ class HTMLParser:
      other      False       Build up tag name or text
     """
 
-    def implicit_tags(self, tag):
-        while True:
-            open_tags = [node.tag for node in self.unfinished]
-            if open_tags == [] and tag != "html":
-                self.add_tag("html")
-            elif open_tags == ["html"] and tag not in ["head", "body", "/html"]:
-                if tag in self.HEAD_TAGS:
-                    self.add_tag("head")
-                else:
-                    self.add_tag("body")
-            elif open_tags == ["html", "head"] and tag not in ["/head"] + self.HEAD_TAGS:
-                self.add_tag("/head")
-            else:
-                break
+    def get_attributes(self, text):
+        parts = text.split()
+        tag = parts[0].casefold()
+        attributes = {}
+
+        for attrpair in parts[1:]:
+            if "=" in attrpair:
+                key, value = attrpair.split("=", 1)
+                if len(value) > 2 and value[0] in ["'", "/"]:
+                    value = value[1:-1]
+                attributes[key.casefold()] = value
+            else: 
+                attributes[attrpair.casefold()] = ""
+        return tag, attributes
+    """
+    Example input: <a href="https://example.org" target="_blank">
+    tag = 'a'
+    attributes = {
+        'href': 'https://example.org',
+        'target': '_blank'
+    }
+    """
 
     def add_text(self, text):
         if text.isspace(): return
@@ -125,6 +110,21 @@ class HTMLParser:
             parent = self.unfinished[-1] if self.unfinished else None
             node = Element(tag, attributes, parent)
             self.unfinished.append(node)
+
+    def implicit_tags(self, tag):
+        while True:
+            open_tags = [node.tag for node in self.unfinished]
+            if open_tags == [] and tag != "html":
+                self.add_tag("html")
+            elif open_tags == ["html"] and tag not in ["head", "body", "/html"]:
+                if tag in self.HEAD_TAGS:
+                    self.add_tag("head")
+                else:
+                    self.add_tag("body")
+            elif open_tags == ["html", "head"] and tag not in ["/head"] + self.HEAD_TAGS:
+                self.add_tag("/head")
+            else:
+                break
 
     def finish(self):
         if not self.unfinished:
