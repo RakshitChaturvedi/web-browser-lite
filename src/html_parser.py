@@ -3,24 +3,26 @@ class Text:
         self.text = text
         self.children = [] # text nodes dont have children, but kept for consistency
         self.parent = parent
+        self.style = {}
 
     def __repr__(self):
         return repr(self.text)
 
 class Element:
     def __init__(self, tag, attributes, parent):
-        self.tag = tag  # tag name, e.g., "div", "body", "html" etc
-        self.attributes = attributes # dictionary of html attributes
-        self.children = []  # list of children, element or text
-        self.parent = parent    # pointer to parent element
+        self.tag = tag                  # tag name, e.g., "div", "body", "html" etc
+        self.attributes = attributes    # dictionary of html attributes
+        self.children = []              # list of children, element or text
+        self.parent = parent            # pointer to parent element
+        self.style = {}
 
     def __repr__(self):
         return "<" + self.tag + ">"
 
 def print_tree(node, indent=0):
-    print(" " * indent, node)   # print the current node with indentation
+    print(" " * indent, node)           # print the current node with indentation
     for child in node.children:
-        print_tree(child, indent+2) # recursively print children, more indented
+        print_tree(child, indent+2)     # recursively print children, more indented
 
 class HTMLParser:
     SELF_CLOSING_TAGS = [
@@ -33,8 +35,8 @@ class HTMLParser:
     ]
 
     def __init__(self, body):
-        self.body = body    # raw html as string
-        self.unfinished = []    # stack of open (unfinished) elements
+        self.body = body                # raw html as string
+        self.unfinished = []            # stack of open (unfinished) elements
 
     def parse(self):
         text = ""
@@ -97,7 +99,8 @@ class HTMLParser:
         if tag.startswith("!"): return
         self.implicit_tags(tag)
 
-        if tag.startswith("/"): # Close tag finishes the last unfinished node by adding it to the prev unfinished node in list
+        # Close tag finishes the last unfinished node by adding it to the prev unfinished node in list
+        if tag.startswith("/"): 
             if len(self.unfinished) == 1: return # to prevent stack overflow / malformed tree, as its likely root node
             node = self.unfinished.pop()
             parent = self.unfinished[-1]

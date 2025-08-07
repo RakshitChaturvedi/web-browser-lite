@@ -1,5 +1,6 @@
 from src.constants import WIDTH, HEIGHT, HSTEP, VSTEP, BLOCK_ELEMENTS, get_font, DrawRect, DrawText
 from src.html_parser import Text, Element
+from src.styles import style
 
 class DocumentLayout:
     def __init__(self, node):
@@ -84,16 +85,16 @@ class BlockLayout:
         else:
             self.height = self.cursor_y
 
-    def recurse(self, tree):
+    def recurse(self, node):
         # Recursively lay out inline text nodes and apply tags
-        if isinstance(tree, Text):
-            for word in tree.text.split():
-                self.word(word)
+        if isinstance(node, Text):
+            for word in node.text.split():
+                self.word(node,word)
         else:
-            self.open_tag(tree.tag)
-            for child in tree.children:
+            if node.tag == "br":
+                self.flush()
+            for child in node.children:
                 self.recurse(child)
-            self.close_tag(tree.tag)
 
     def open_tag(self, tag):
         if tag == "i":
@@ -120,38 +121,47 @@ class BlockLayout:
             self.flush()
             self.cursor_y += VSTEP
     
-    def flush(self): # Align words, Add to display list, update cursor_x and y fiels.
+    # Align words, Add to display list, update cursor_x and y fiels.
+    def flush(self): 
         if not self.line: return
-        metrics = [font.metrics() for x, word, font in self.line]
-        max_ascent = max([font.metrics("ascent") for x, word, font in self.line])  
+        metrics = [font.metrics() for x, word, font , color in self.line]
+        max_ascent = max([font.metrics("ascent") for x, word, font, color in self.line])  
         baseline = self.cursor_y + 1.25 * max_ascent    # adjusts the baseline
-        for rel_x, word, font in self.line:
-            x = self.x + rel_x
+        for x, word, font, color in self.line:
+            x = self.x + x
             y = self.y + baseline - font.metrics("ascent")
-            self.display_list.append((x, y, word, font))
+            self.display_list.append((x, y, word, font, color))
         self.cursor_x = 0
         self.line = []
         max_descent = max([metric["descent"] for metric in metrics])
         self.cursor_y = baseline + 1.25 * max_descent
 
-    def word(self, word): # Add word to current line and manage cursor position
-        font = get_font(self.size, self.weight, self.style)
+    # Add word to current line and manage cursor position
+    def word(self, node, word): 
+        color = node.style["color"]
+        weight = node.style["font-weight"]
+        style = node.style["font-style"]
+        if style == "normal": style = "roman"
+        size = int(float(node.style["font-size"][:-2]) * .75)
+        font = get_font(size, weight, style)
         w = font.measure(word)      
         if self.cursor_x + w > self.width:
             self.flush()
-        self.line.append((self.cursor_x, word, font))
+        self.line.append((self.cursor_x, word, font, color))
         self.cursor_x += w + font.measure(" ")
 
     def paint(self):
         cmds = []
-        if isinstance(self.node, Element) and self.node.tag == "pre":
+        bgcolor = self.node.style.get("background-color", "transparent")
+
+        if bgcolor != "transparent":
             x2, y2 = self.x + self.width, self.y + self.height
-            rect = DrawRect(self.x, self.y, x2, y2, "gray")
+            rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
             cmds.append(rect)
 
         if self.layout_mode() == "inline":
-            for x, y, word, font in self.display_list:
-                cmds.append(DrawText(x, y, word, font))
+            for x, y, word, font, color in self.display_list:
+                cmds.append(DrawText(self.x + x, self.y + y, word, font, color))
         return cmds
     
 """

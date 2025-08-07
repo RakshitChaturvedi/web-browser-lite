@@ -13,6 +13,12 @@ BLOCK_ELEMENTS = [
     "figcaption", "main", "div", "table", "form", "fieldset",
     "legend", "details", "summary"
 ] 
+INHERITED_PROPERTIES = {
+    "font-size": "16px",
+    "font-style": "normal",
+    "font-weight": "normal",
+    "color": "black",
+}
 
 # CACHING FONTS
 def get_font(size, weight, style):
@@ -28,19 +34,21 @@ def get_font(size, weight, style):
     return FONTS[key][0]
 
 class DrawText:
-    def __init__(self, x1, y1, text, font):
+    def __init__(self, x1, y1, text, font, color):
         self.top = y1
+        self.bottom = y1 + font.metrics("linespace")
         self.left = x1
         self.text = text
         self.font = font
-        self.bottom = y1 + font.metrics("linespace")
+        self.color = color
 
     def execute(self, scroll, canvas):
         canvas.create_text(
             self.left, self.top - scroll,
             text = self.text,
             font = self.font, 
-            anchor = 'nw'
+            anchor = 'nw',
+            fill= self.color
         )
 
 class DrawRect:
@@ -65,3 +73,9 @@ def paint_tree(layout_object, display_list):
 
     for child in layout_object.children:
         paint_tree(child, display_list)
+
+def tree_to_list(tree, list):
+    list.append(tree)
+    for child in tree.children:
+        tree_to_list(child,list)
+    return list

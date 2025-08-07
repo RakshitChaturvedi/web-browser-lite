@@ -41,9 +41,9 @@ class URL:
             s = ctx.wrap_socket(s, server_hostname=self.host)
 
         # Sending the Request
-        request = "GET {} HTTP/1.0\r\n".format(self.path) # \r\n: \r means go to the start of current line, \n means go to the next line.
+        request = "GET {} HTTP/1.0\r\n".format(self.path)   # \r\n: \r means go to the start of current line, \n means go to the next line.
         request += "Host: {}\r\n".format(self.host) 
-        request += "\r\n" # add blank line at end of request, if not, the other computer keeps waiting.
+        request += "\r\n"                                   # add blank line at end of request, if not, the other computer keeps waiting.
         s.send(request.encode("utf8"))
 
         """
@@ -53,8 +53,9 @@ class URL:
 
         """
 
-        # Recieving the Response
-        response = s.makefile("r", encoding="utf8", newline="\r\n") # makefile returns file-like obj containing every byte we recieve from server
+        # Recieving the Response. 
+        # Makefile returns file-like obj containing every byte we recieve from server
+        response = s.makefile("r", encoding="utf8", newline="\r\n") 
         """
         Example response:
         HTTP/1.0 200 OK\r\n
@@ -104,4 +105,41 @@ class URL:
         content = <html><body>Hello World!</body></html>
         """
 
-        return content            
+        return content     
+
+    def resolve(self, url):
+        if "://" in url: return URL(url)
+
+        if not url.startswith("/"):
+            dir, _ = self.path.rsplit("/", 1)
+            while url.startswith("../"):
+                _, url = url.split("/", 1)            
+                if "/" in dir: 
+                    dir, _ = dir.rsplit("/", 1)
+            url = dir + "/" + url 
+
+        if url.startswith("//"):
+            return URL(self.scheme + "://" + self.host + ":" + str(self.port) + url)  
+        """
+        First if statement:
+            --> handles already complete urls
+            --> returns the url as is
+
+        Second if statement: (parent or host relative)
+            --> Handle relative paths that don't start with a slash (e.g. "another-page.html") 
+            --> These are relative to the *current directory* of the URL
+            1) get dir part of current path. e.g if self.path is "/articles/tech/index.html", dir = "/articles/tech"
+            2) while loop: (for parent relatives)
+                --> handles "go up one dir" paths like "../style.css". For each "../" at the start of URL...
+                1) remove the "../" from url
+                2) go one level up in dir path
+                    --> e.g if dir is "/articles/tech" it becomes "/articles"
+            3) combine dir path and relative URL to make full path 
+                --> e.g. if dir = "/articles" and url = "style.css", url becomes "/articles/style.css
+
+        Third if statement: (for protocol relatives)
+            --> handles urls starting with "//" (e.g: "//example.com/image.png) 
+            --> uses same scheme (http or https) as current page
+            1) rebuild url from its components 
+        """
+         

@@ -1,9 +1,10 @@
 from src.url_loader import URL
 import tkinter
 import tkinter.font
-from src.html_parser import HTMLParser  
+from src.html_parser import HTMLParser, Element
 from src.layout import DocumentLayout   
-from src.constants import WIDTH, HEIGHT, HSTEP, VSTEP, BLOCK_ELEMENTS, FONTS, SCROLL_STEP, paint_tree
+from src.constants import WIDTH, HEIGHT, HSTEP, VSTEP, BLOCK_ELEMENTS, FONTS, SCROLL_STEP, paint_tree, tree_to_list
+from src.styles import style, DEFAULT_STYLE_SHEET, CSSParser, cascade_priority
 
 class Browser:
     def __init__(self):
@@ -11,7 +12,8 @@ class Browser:
         self.canvas = tkinter.Canvas(
             self.window,
             width=WIDTH,
-            height=HEIGHT            
+            height=HEIGHT,
+            bg="white",           
         )
         self.canvas.pack()
 
@@ -29,9 +31,29 @@ class Browser:
     def load(self, url):
         body = url.request()
         self.nodes = HTMLParser(body).parse()
+
+        rules = DEFAULT_STYLE_SHEET.copy()
+        links = [node.attributes["href"]
+                 for node in tree_to_list(self.nodes, [])
+                 if isinstance(node, Element)
+                 and node.tag == "link"
+                 and node.attributes.get("rel") == "stylesheet"
+                 and "href" in node.attributes]
+        for link in links:
+            style_url = url.resolve(link)
+            try:
+                body = style_url.request()
+            except:
+                continue
+            rules.extend(CSSParser(body).parse())
+
+
+        style(self.nodes, sorted(rules, key=cascade_priority))
+
         self.document = DocumentLayout(self.nodes)
         self.document.layout()
         self.display_list = []
+        
         paint_tree(self.document, self.display_list)
         self.draw()
 
