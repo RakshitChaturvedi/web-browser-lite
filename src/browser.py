@@ -20,6 +20,7 @@ class Browser:
         self.scroll = 0
         self.window.bind("<Down>", self.scrolldown)
         self.window.bind("<Up>", self.scrollup)
+        self.window.bind("<Button-1>", self.click)
 
     def draw(self):
         self.canvas.delete("all")
@@ -65,6 +66,10 @@ class Browser:
     def scrollup(self, e):
         self.scroll -= SCROLL_STEP
         self.draw()
+
+    def click(self, e):
+        x,y = e.x, e.y
+        y += self.scroll
 
 if __name__ == "__main__":
     import sys
