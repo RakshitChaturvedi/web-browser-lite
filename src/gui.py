@@ -20,6 +20,8 @@ class Tab:
         self.url = None
         self.scroll = 0
 
+        self.history = []
+
     def draw(self, canvas, offset):
         for cmd in self.display_list:
             if cmd.top > self.scroll + self.tab_height: continue
@@ -27,6 +29,7 @@ class Tab:
             cmd.execute(self.scroll - offset, canvas)
 
     def load(self, url):
+        self.history.append(url)
         self.url = url
         body = url.request()
         self.nodes = HTMLParser(body).parse()
@@ -54,6 +57,12 @@ class Tab:
         self.display_list = []
         
         paint_tree(self.document, self.display_list)
+    
+    def go_back(self):
+        if len(self.history) > 1:
+            self.history.pop()
+            back = self.history.pop()
+            self.load(back)
 
     def scrolldown(self):
         max_y = max(self.document.height + 2*VSTEP - self.tab_height, 0)
@@ -139,7 +148,10 @@ class Chrome:
         self.padding = 5
         self.tabbar_top = 0
         self.tabbar_bottom = self.font_height + 2*self.padding
-        self.bottom = self.tabbar_bottom
+
+        self.urlbar_top = self.tabbar_bottom
+        self.urlbar_bottom = self.urlbar_top + self.font_height + 2*self.padding
+        self.bottom = self.urlbar_bottom
         
         plus_width = self.font.measure("+") + 2*self.padding
         self.newtab_rect = Rect(
@@ -147,6 +159,21 @@ class Chrome:
             self.padding,
             self.padding + plus_width,
             self.padding + self.font_height
+        )
+
+        back_width = self.font.measure("<") + 2*self.padding
+        self.back_rect = Rect(
+            self.padding,
+            self.urlbar_top + self.padding,
+            self.padding + back_width,
+            self.urlbar_bottom - self.padding
+        )
+
+        self.address_rect = Rect(
+            self.back_rect.top + self.padding,
+            self.urlbar_top + self.padding,
+            WIDTH - self.padding,
+            self.urlbar_bottom - self.padding
         )
 
     def paint(self):
@@ -195,6 +222,27 @@ class Chrome:
                     bounds.right, bounds.bottom, WIDTH, bounds.bottom,
                     "black", 1
                 ))
+
+        # painting the back button
+        cmds.append(DrawOutline(self.back_rect, "black", 1))
+        cmds.append(DrawText(
+            self.back_rect.left + self.padding,
+            self.back_rect.top,
+            "<",
+            self.font,
+            "black"
+        ))
+
+        # address bar
+        cmds.append(DrawOutline(self.address_rect, "black", 1))
+        url = str(self.browser.active_tab.url)
+        cmds.append(DrawText(
+            self.address_rect.left + self.padding,
+            self.address_rect.top,
+            url,
+            self.font,
+            "black"
+        ))
         return cmds
     
     def click(self, x, y):
@@ -205,6 +253,8 @@ class Chrome:
                 if self.tab_rect(i).containsPoint(x, y):
                     self.browser.active_tab = tab
                     break
+                elif self.back_rect.containsPoint(x, y):
+                    self.browser.active_tab.go_back()
     
     def tab_rect(self, i):
         tabs_start = self.newtab_rect.right + self.padding
