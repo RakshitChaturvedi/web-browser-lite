@@ -1,4 +1,4 @@
-from src.constants import WIDTH, HEIGHT, HSTEP, VSTEP, BLOCK_ELEMENTS, get_font, DrawRect, DrawText
+from src.constants import WIDTH, HEIGHT, HSTEP, VSTEP, BLOCK_ELEMENTS, get_font, DrawRect, DrawText, DrawOutline, DrawLine, Rect
 from src.html_parser import Text, Element
 from src.styles import style
 
@@ -28,6 +28,10 @@ class LineLayout:
         self.parent = parent
         self.previous = previous
         self.children = []
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
 
     def layout(self):
         self.width = self.parent.width
@@ -41,6 +45,8 @@ class LineLayout:
         for word in self.children:
             word.layout()
 
+        if not self.children:
+            return
         max_ascent = max([word.font.metrics("ascent") for word in self.children])
         baseline = self.y + 1.25*max_ascent
         for word in self.children:
@@ -83,9 +89,7 @@ class TextLayout:
         return [DrawText(self.x, self.y, self.word, self.font, color)]
 
 class BlockLayout:
-    def __init__(self, node, parent, previous):
-        self.display_list= []           # What gets drawn to screen
-        
+    def __init__(self, node, parent, previous):        
         self.node = node                # Current DOM node
         self.parent = parent            # Parent BlockLayout
         self.previous = previous        # Previous sibling
@@ -132,7 +136,7 @@ class BlockLayout:
         for child in self.children:
             child.layout()
 
-        self.height = sum([child.height for child in self.children])
+        self.height = sum([child.height for child in self.children if child.height is not None])
 
     def recurse(self, node):
         # Recursively lay out inline text nodes and apply tags
@@ -141,49 +145,9 @@ class BlockLayout:
                 self.word(node,word)
         else:
             if node.tag == "br":
-                self.flush()
+                self.new_line()
             for child in node.children:
                 self.recurse(child)
-
-    def open_tag(self, tag):
-        if tag == "i":
-            self.style = "italic"
-        elif tag == "b":
-            self.weight = "bold"
-        elif tag == "small":
-            self.size -= 2
-        elif tag == "big":
-            self.size += 4
-        elif tag == "br":
-            self.flush()
-
-    def close_tag(self, tag):
-        if tag == "i":
-            self.style = "roman"
-        elif tag == "b":
-            self.weight = "normal"
-        elif tag == "small":
-            self.size += 2
-        elif tag == "big":
-            self.size -= 4
-        elif tag == "p":
-            self.flush()
-            self.cursor_y += VSTEP
-    
-    # Align words, Add to display list, update cursor_x and y fiels.
-    def flush(self): 
-        if not self.line: return
-        metrics = [font.metrics() for x, word, font , color in self.line]
-        max_ascent = max([font.metrics("ascent") for x, word, font, color in self.line])  
-        baseline = self.cursor_y + 1.25 * max_ascent    # adjusts the baseline
-        for x, word, font, color in self.line:
-            x = self.x + x
-            y = self.y + baseline - font.metrics("ascent")
-            self.display_list.append((x, y, word, font, color))
-        self.cursor_x = 0
-        self.line = []
-        max_descent = max([metric["descent"] for metric in metrics])
-        self.cursor_y = baseline + 1.25 * max_descent
 
     # Add word to current line and manage cursor position
     def word(self, node, word): 
@@ -214,16 +178,13 @@ class BlockLayout:
     def paint(self):
         cmds = []
         bgcolor = self.node.style.get("background-color", "transparent")
-
         if bgcolor != "transparent":
-            x2, y2 = self.x + self.width, self.y + self.height
-            rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
+            rect = DrawRect(self.self_rect(), bgcolor)
             cmds.append(rect)
-
-        if self.layout_mode() == "inline":
-            for x, y, word, font, color in self.display_list:
-                cmds.append(DrawText(self.x + x, self.y + y, word, font, color))
         return cmds
+
+    def self_rect(self):
+        return Rect(self.x, self.y, self.x + self.width, self.y + self.height)
     
 """
 Example: <html><body><b>Hello <i>World!</i></b></body></html>

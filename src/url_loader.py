@@ -108,8 +108,18 @@ class URL:
         return content     
 
     def resolve(self, url):
+        if not url: return None
+
+        url = url.strip()
+        url = url.strip('"')
+        print(f"DEBUG: URL IS -> {url}")
+        
         if "://" in url: return URL(url)
 
+        if url.startswith("#") or url.startswith("javascript:"):
+            return None
+
+        """
         if not url.startswith("/"):
             dir, _ = self.path.rsplit("/", 1)
             while url.startswith("../"):
@@ -117,9 +127,22 @@ class URL:
                 if "/" in dir: 
                     dir, _ = dir.rsplit("/", 1)
             url = dir + "/" + url 
+        """
+
+        if url.startswith("/"):
+            return URL(f"{self.scheme}://{self.host}:{self.port}{url}")
 
         if url.startswith("//"):
             return URL(self.scheme + "://" + self.host + ":" + str(self.port) + url)  
+        
+        dir, _ = self.path.rsplit("/", 1)
+        while url.startswith("../"):
+            url = url[3:] # strip leading../
+            if "/" in dir:
+                dir, _ = dir.rsplit("/", 1)
+        
+        full_path = f"{dir}/{url}"
+        return URL(f"{self.scheme}://{self.host}:{self.port}{full_path}")
         """
         First if statement:
             --> handles already complete urls
